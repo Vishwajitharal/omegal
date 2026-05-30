@@ -7,11 +7,13 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET', 'POST'] },
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -30,6 +32,15 @@ const waitingQueue = [];
 const activeRooms = new Map();
 
 app.get('/ice-servers', (req, res) => res.json(ICE_SERVERS));
+
+app.get('/server-config.js', (req, res) => {
+  res.type('application/javascript');
+  res.send(`window.SERVER_CONFIG = { iceServers: ${JSON.stringify(ICE_SERVERS.iceServers)} };`);
+});
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 function findExistingRoom(socketId) {
   for (const [roomId, members] of activeRooms) {

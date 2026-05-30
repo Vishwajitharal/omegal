@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  const socket = io();
+  const serverUrl = window.SERVER_URL || '';
+  const socket = serverUrl ? io(serverUrl) : io();
   let iceServers = null;
   let localStream = null;
   let peerConnection = null;
@@ -92,11 +93,16 @@
   /* ── Init ── */
 
   async function init() {
-    try {
-      const res = await fetch('/ice-servers');
-      iceServers = await res.json();
-    } catch {
-      iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    if (window.SERVER_CONFIG) {
+      iceServers = { iceServers: window.SERVER_CONFIG.iceServers };
+    } else {
+      try {
+        const base = serverUrl || '';
+        const res = await fetch(base + '/ice-servers');
+        iceServers = await res.json();
+      } catch {
+        iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+      }
     }
 
     try {

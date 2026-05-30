@@ -7,6 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <!-- Set SERVER_URL to your Render backend when frontend is hosted separately -->
+  <!-- For local dev or full-Render deploy, leave empty (same-origin) -->
+  <script>window.SERVER_URL = '';</script>
+  <script src="/server-config.js"></script>
 </head>
 <body>
   <canvas id="particles"></canvas>
