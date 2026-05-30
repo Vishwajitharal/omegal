@@ -3,80 +3,163 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StrangerLink — Talk to Strangers</title>
+  <title>StrangerLink — into the void</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <canvas id="particles"></canvas>
+  <div class="grain"></div>
+
   <div id="app">
+
+    <!-- Header -->
     <header>
-      <h1>StrangerLink</h1>
-      <span class="tagline">Talk to strangers. Instantly.</span>
+      <span class="logo">StrangerLink</span>
+      <nav>
+        <a href="#" class="nav-link" id="about-link">about</a>
+      </nav>
     </header>
 
+    <!-- Status beacon -->
     <div id="status-bar">
-      <span id="status-text">Ready</span>
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">standby</span>
     </div>
 
+    <!-- ═══ HOME SCREEN ═══ -->
     <div id="home-screen" class="screen active">
-      <div class="video-container">
-        <video id="local-preview" autoplay muted playsinline></video>
-        <div class="video-label">You</div>
+      <div class="home-layout">
+        <div class="hero">
+          <h1 class="hero-title">
+            <span class="line">One click</span>
+            <span class="line accent">to the unknown</span>
+          </h1>
+          <p class="hero-sub">Anonymous video conversations with strangers worldwide. No account. No trace.</p>
+        </div>
+
+        <div class="preview-mirror">
+          <div class="mirror-frame">
+            <video id="local-preview" autoplay muted playsinline></video>
+            <div class="mirror-glow"></div>
+            <div class="mirror-label">your signal</div>
+          </div>
+          <div class="mirror-ornament">
+            <svg viewBox="0 0 200 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 10 H60 M70 10 H130 M140 10 H200" stroke="var(--accent)" stroke-width="0.5" opacity="0.3"/>
+              <circle cx="100" cy="10" r="2" fill="var(--accent)" opacity="0.6"/>
+            </svg>
+          </div>
+        </div>
+
+        <button id="start-btn" class="btn-prime">
+          <span class="btn-text">begin</span>
+          <span class="btn-glow-ring"></span>
+        </button>
       </div>
-      <button id="start-btn" class="btn btn-primary">Start</button>
-      <p class="hint">Click Start to be matched with a random stranger.</p>
     </div>
 
+    <!-- ═══ CALL SCREEN ═══ -->
     <div id="call-screen" class="screen">
-      <div class="video-grid">
-        <div class="video-container remote-container">
-          <video id="remote-video" autoplay playsinline></video>
-          <div class="video-label">Stranger</div>
-          <div id="remote-fallback" class="fallback">Waiting for video...</div>
-        </div>
-        <div class="video-container local-container">
-          <video id="local-video" autoplay muted playsinline></video>
-          <div class="video-label">You</div>
-        </div>
-      </div>
+      <div class="call-layout">
+        <!-- Remote video (stranger) -->
+        <div class="remote-zone">
+          <div class="remote-frame">
+            <video id="remote-video" autoplay playsinline></video>
+            <div id="remote-fallback" class="remote-fallback">
+              <span class="pulse-ring"></span>
+              <span class="fallback-text">awaiting signal</span>
+            </div>
+            <div class="remote-corner top-left"></div>
+            <div class="remote-corner top-right"></div>
+            <div class="remote-corner bottom-left"></div>
+            <div class="remote-corner bottom-right"></div>
+          </div>
 
-      <div class="chat-panel" id="chat-panel">
-        <div class="chat-header">
-          <span>Text Chat</span>
-          <button id="toggle-chat-btn" class="btn-icon" title="Toggle chat">&times;</button>
+          <!-- Local PiP -->
+          <div class="local-pip">
+            <video id="local-video" autoplay muted playsinline></video>
+            <span class="pip-label">you</span>
+          </div>
         </div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-area">
-          <input type="text" id="chat-input" placeholder="Type a message..." disabled />
-          <button id="chat-send-btn" disabled>Send</button>
-        </div>
-      </div>
 
-      <div class="controls">
-        <button id="mic-btn" class="btn btn-control" title="Toggle microphone">Mic</button>
-        <button id="cam-btn" class="btn btn-control" title="Toggle camera">Cam</button>
-        <button id="report-btn" class="btn btn-control btn-warning" title="Report user">Report</button>
-        <button id="next-btn" class="btn btn-primary">Next</button>
-        <button id="stop-btn" class="btn btn-danger">Stop</button>
+        <!-- Sidebar: status + controls + chat -->
+        <div class="sidebar">
+          <!-- Session info -->
+          <div class="session-info" id="session-info">
+            <div class="conn-indicator" id="conn-indicator">
+              <span class="conn-dot"></span>
+              <span class="conn-label">disconnected</span>
+            </div>
+            <div class="conn-timer" id="conn-timer">00:00</div>
+          </div>
+
+          <!-- Controls -->
+          <div class="call-controls">
+            <button id="mic-btn" class="ctrl-btn" title="Toggle microphone">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="ctrl-icon"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+              <span class="ctrl-label">mic</span>
+            </button>
+            <button id="cam-btn" class="ctrl-btn" title="Toggle camera">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="ctrl-icon"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <span class="ctrl-label">cam</span>
+            </button>
+            <button id="report-btn" class="ctrl-btn ctrl-report" title="Report user">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="ctrl-icon"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              <span class="ctrl-label">report</span>
+            </button>
+            <button id="next-btn" class="ctrl-btn ctrl-next" title="Next stranger">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="ctrl-icon"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+              <span class="ctrl-label">next</span>
+            </button>
+            <button id="stop-btn" class="ctrl-btn ctrl-stop" title="Stop">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="ctrl-icon"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/></svg>
+              <span class="ctrl-label">stop</span>
+            </button>
+          </div>
+
+          <!-- Chat -->
+          <div class="chat-box">
+            <div class="chat-head">
+              <span class="chat-head-label">text channel</span>
+              <span class="chat-head-badge" id="chat-unread"></span>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-row">
+              <input type="text" id="chat-input" placeholder="type a message…" disabled />
+              <button id="chat-send-btn" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div id="report-modal" class="modal-overlay hidden">
-      <div class="modal">
-        <h3>Report User</h3>
+    <!-- ═══ REPORT MODAL ═══ -->
+    <div id="report-modal" class="modal-mask hidden">
+      <div class="modal-panel">
+        <div class="modal-header">
+          <h2>Report</h2>
+          <button id="modal-close" class="modal-x">&times;</button>
+        </div>
+        <p class="modal-note">Your report is anonymous. No account needed.</p>
         <select id="report-reason">
-          <option value="">Select a reason...</option>
-          <option value="nudity">Nudity / sexual content</option>
-          <option value="harassment">Harassment / bullying</option>
-          <option value="spam">Spam / advertising</option>
-          <option value="underage">Looks underage</option>
-          <option value="other">Other</option>
+          <option value="" disabled selected>select a reason</option>
+          <option value="nudity">nudity / sexual content</option>
+          <option value="harassment">harassment / bullying</option>
+          <option value="spam">spam / advertising</option>
+          <option value="underage">looks underage</option>
+          <option value="other">other</option>
         </select>
         <div class="modal-actions">
-          <button id="report-cancel" class="btn">Cancel</button>
-          <button id="report-submit" class="btn btn-warning">Submit Report</button>
+          <button id="report-cancel" class="btn-modal btn-ghost">cancel</button>
+          <button id="report-submit" class="btn-modal btn-submit-report">submit report</button>
         </div>
       </div>
     </div>
+
   </div>
 
   <script src="/socket.io/socket.io.js"></script>

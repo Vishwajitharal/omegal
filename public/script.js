@@ -11,9 +11,13 @@
   let isMicMuted = false;
   let isCamOff = false;
   let isSearching = false;
-  let chatPartner = null;
+  let sessionStart = null;
+  let timerInterval = null;
 
   const $ = (sel) => document.querySelector(sel);
+
+  /* ── DOM refs ── */
+  const statusDot = $('#status-dot');
   const statusText = $('#status-text');
   const homeScreen = $('#home-screen');
   const callScreen = $('#call-screen');
@@ -27,8 +31,6 @@
   const micBtn = $('#mic-btn');
   const camBtn = $('#cam-btn');
   const reportBtn = $('#report-btn');
-  const toggleChatBtn = $('#toggle-chat-btn');
-  const chatPanel = $('#chat-panel');
   const chatMessages = $('#chat-messages');
   const chatInput = $('#chat-input');
   const chatSendBtn = $('#chat-send-btn');
@@ -36,15 +38,65 @@
   const reportReason = $('#report-reason');
   const reportCancel = $('#report-cancel');
   const reportSubmit = $('#report-submit');
+  const modalClose = $('#modal-close');
+  const connDot = document.querySelector('.conn-dot');
+  const connLabel = document.querySelector('.conn-label');
+  const connTimer = $('#conn-timer');
+
+  /* ── Status helpers ── */
+
+  function setStatus(text, state) {
+    statusText.textContent = text;
+    statusDot.className = 'dot';
+    if (state === 'active') {
+      statusDot.classList.add('active');
+      statusText.style.color = '';
+    } else if (state === 'connecting') {
+      statusDot.classList.add('connecting');
+      statusText.style.color = '';
+    } else if (state === 'error') {
+      statusDot.classList.add('error');
+      statusText.style.color = '';
+    } else {
+      statusText.style.color = '';
+    }
+  }
+
+  function setConnIndicator(text, state) {
+    if (!connDot || !connLabel) return;
+    connLabel.textContent = text;
+    connDot.className = 'conn-dot';
+    if (state === 'active') connDot.classList.add('active');
+    else if (state === 'error') connDot.classList.add('error');
+  }
+
+  function startTimer() {
+    sessionStart = Date.now();
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (!sessionStart) return;
+      const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      connTimer.textContent = `${m}:${s}`;
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    sessionStart = null;
+    connTimer.textContent = '00:00';
+  }
+
+  /* ── Init ── */
 
   async function init() {
     try {
       const res = await fetch('/ice-servers');
       iceServers = await res.json();
     } catch {
-      iceServers = {
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      };
+      iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     }
 
     try {
@@ -52,23 +104,68 @@
       localPreview.srcObject = localStream;
       localVideo.srcObject = localStream;
       startBtn.disabled = false;
-    } catch (err) {
-      statusText.textContent = 'Camera/mic access denied';
+    } catch {
+      setStatus('camera / mic denied', 'error');
       startBtn.disabled = true;
     }
 
     setupSocket();
     setupUI();
+    initParticles();
   }
 
-  function setStatus(text, isActive = false) {
-    statusText.textContent = text;
-    statusText.style.color = isActive ? 'var(--primary)' : '';
+  /* ── Particles ── */
+
+  function initParticles() {
+    const canvas = document.getElementById('particles');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let w, h, particles = [];
+
+    function resize() {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const COUNT = 60;
+    for (let i = 0; i < COUNT; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
+        r: Math.random() * 1.2 + 0.3,
+        a: Math.random() * 0.4 + 0.1,
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = w;
+        if (p.x > w) p.x = 0;
+        if (p.y < 0) p.y = h;
+        if (p.y > h) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 229, 255, ${p.a})`;
+        ctx.fill();
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
   }
+
+  /* ── Socket events ── */
 
   function setupSocket() {
     socket.on('waiting', () => {
-      setStatus('Searching for a stranger…', true);
+      setStatus('searching…', 'active');
+      setConnIndicator('searching', 'active');
       isSearching = true;
     });
 
@@ -76,7 +173,8 @@
       isSearching = false;
       currentPeerId = peerId;
       isInitiator = initiator;
-      setStatus('Connecting…', true);
+      setStatus('connecting…', 'connecting');
+      setConnIndicator('connecting', 'active');
       hideHome();
       showCall();
       await startPeerConnection(initiator);
@@ -89,24 +187,27 @@
 
     socket.on('peer-disconnected', ({ reason }) => {
       cleanupCall();
+      stopTimer();
       if (reason === 'next') {
-        setStatus('Stranger left. Searching again…', true);
+        setStatus('stranger left — searching…', 'active');
+        setConnIndicator('reconnecting', 'active');
         socket.emit('find-match');
       } else {
-        setStatus('Stranger disconnected', false);
+        setStatus('stranger disconnected', 'error');
+        setConnIndicator('disconnected', 'error');
       }
     });
 
     socket.on('stopped', () => {
       cleanupCall();
+      stopTimer();
       showHome();
-      setStatus('Ready');
+      setStatus('standby');
+      setConnIndicator('disconnected');
     });
 
     socket.on('chat-message', ({ from, text }) => {
-      if (from === currentPeerId) {
-        appendChatMessage(text, 'other');
-      }
+      if (from === currentPeerId) appendChatMessage(text, 'other');
     });
 
     socket.on('typing', ({ from }) => {
@@ -118,22 +219,28 @@
     });
   }
 
+  /* ── UI events ── */
+
   function setupUI() {
     startBtn.addEventListener('click', () => {
       if (!localStream) return;
       startBtn.disabled = true;
-      setStatus('Searching…', true);
+      setStatus('searching…', 'active');
+      setConnIndicator('searching', 'active');
       socket.emit('find-match');
     });
 
     nextBtn.addEventListener('click', () => {
       cleanupPeerConnection();
-      setStatus('Searching…', true);
+      stopTimer();
+      setStatus('searching…', 'active');
+      setConnIndicator('searching', 'active');
       socket.emit('next');
     });
 
     stopBtn.addEventListener('click', () => {
       cleanupPeerConnection();
+      stopTimer();
       socket.emit('stop');
     });
 
@@ -142,7 +249,6 @@
       isMicMuted = !isMicMuted;
       localStream.getAudioTracks().forEach((t) => (t.enabled = !isMicMuted));
       micBtn.classList.toggle('muted', isMicMuted);
-      micBtn.textContent = isMicMuted ? 'Muted' : 'Mic';
     });
 
     camBtn.addEventListener('click', () => {
@@ -150,30 +256,27 @@
       isCamOff = !isCamOff;
       localStream.getVideoTracks().forEach((t) => (t.enabled = !isCamOff));
       camBtn.classList.toggle('muted', isCamOff);
-      camBtn.textContent = isCamOff ? 'Off' : 'Cam';
     });
 
-    reportBtn.addEventListener('click', () => {
-      reportModal.classList.remove('hidden');
-    });
+    reportBtn.addEventListener('click', () => reportModal.classList.remove('hidden'));
 
-    reportCancel.addEventListener('click', () => {
+    const closeModal = () => {
       reportModal.classList.add('hidden');
       reportReason.value = '';
+    };
+
+    reportCancel.addEventListener('click', closeModal);
+    modalClose.addEventListener('click', closeModal);
+    reportModal.addEventListener('click', (e) => {
+      if (e.target === reportModal) closeModal();
     });
 
     reportSubmit.addEventListener('click', () => {
       const reason = reportReason.value;
       if (!reason) return;
       socket.emit('report', { reason });
-      reportModal.classList.add('hidden');
-      reportReason.value = '';
-      setStatus('Report submitted', false);
-    });
-
-    toggleChatBtn.addEventListener('click', () => {
-      chatPanel.classList.toggle('collapsed');
-      toggleChatBtn.textContent = chatPanel.classList.contains('collapsed') ? '\u25B2' : '\u00D7';
+      closeModal();
+      setStatus('report submitted');
     });
 
     chatInput.addEventListener('keydown', (e) => {
@@ -193,15 +296,15 @@
     chatSendBtn.addEventListener('click', sendChatMessage);
   }
 
+  /* ── Chat ── */
+
   function sendChatMessage() {
     const text = chatInput.value.trim();
     if (!text || !currentPeerId) return;
     appendChatMessage(text, 'self');
     socket.emit('chat-message', { to: currentPeerId, text });
     chatInput.value = '';
-    if (currentPeerId) {
-      socket.emit('stop-typing', { to: currentPeerId });
-    }
+    if (currentPeerId) socket.emit('stop-typing', { to: currentPeerId });
   }
 
   function appendChatMessage(text, type) {
@@ -218,25 +321,19 @@
     if (typingEl) return;
     typingEl = document.createElement('div');
     typingEl.className = 'typing-indicator';
-    typingEl.textContent = 'Stranger is typing…';
+    typingEl.textContent = 'stranger is typing…';
     chatMessages.appendChild(typingEl);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
   function hideTyping() {
-    if (typingEl) {
-      typingEl.remove();
-      typingEl = null;
-    }
+    if (typingEl) { typingEl.remove(); typingEl = null; }
   }
 
-  function hideHome() {
-    homeScreen.classList.remove('active');
-  }
+  /* ── Screen transitions ── */
 
-  function showCall() {
-    callScreen.classList.add('active');
-  }
+  function hideHome() { homeScreen.classList.remove('active'); }
+  function showCall() { callScreen.classList.add('active'); }
 
   function showHome() {
     callScreen.classList.remove('active');
@@ -245,22 +342,27 @@
     chatMessages.innerHTML = '';
   }
 
+  /* ── WebRTC ── */
+
   async function startPeerConnection(initiator) {
     cleanupPeerConnection();
 
     chatInput.disabled = false;
     chatSendBtn.disabled = false;
     remoteFallback.style.display = 'flex';
+    startTimer();
 
     peerConnection = new RTCPeerConnection(iceServers);
 
     peerConnection.oniceconnectionstatechange = () => {
       const state = peerConnection.iceConnectionState;
       if (state === 'connected' || state === 'completed') {
-        setStatus('Connected', true);
+        setStatus('connected', 'active');
+        setConnIndicator('connected', 'active');
         remoteFallback.style.display = 'none';
       } else if (state === 'disconnected' || state === 'failed') {
-        setStatus('Connection lost', false);
+        setStatus('connection lost', 'error');
+        setConnIndicator('lost', 'error');
       }
     };
 
@@ -283,10 +385,12 @@
 
     if (initiator) {
       dataChannel.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'chat') appendChatMessage(msg.text, 'other');
-        if (msg.type === 'typing') showTyping();
-        if (msg.type === 'stop-typing') hideTyping();
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'chat') appendChatMessage(msg.text, 'other');
+          if (msg.type === 'typing') showTyping();
+          if (msg.type === 'stop-typing') hideTyping();
+        } catch {}
       };
 
       try {
@@ -300,20 +404,19 @@
       peerConnection.ondatachannel = (event) => {
         dataChannel = event.channel;
         dataChannel.onmessage = (e) => {
-          const msg = JSON.parse(e.data);
-          if (msg.type === 'chat') appendChatMessage(msg.text, 'other');
-          if (msg.type === 'typing') showTyping();
-          if (msg.type === 'stop-typing') hideTyping();
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'chat') appendChatMessage(msg.text, 'other');
+            if (msg.type === 'typing') showTyping();
+            if (msg.type === 'stop-typing') hideTyping();
+          } catch {}
         };
       };
     }
 
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && currentPeerId) {
-        socket.emit('signal', {
-          to: currentPeerId,
-          data: { type: 'candidate', candidate: event.candidate },
-        });
+        socket.emit('signal', { to: currentPeerId, data: { type: 'candidate', candidate: event.candidate } });
       }
     };
   }
@@ -346,14 +449,8 @@
   }
 
   function cleanupPeerConnection() {
-    if (dataChannel) {
-      dataChannel.close();
-      dataChannel = null;
-    }
-    if (peerConnection) {
-      peerConnection.close();
-      peerConnection = null;
-    }
+    if (dataChannel) { dataChannel.close(); dataChannel = null; }
+    if (peerConnection) { peerConnection.close(); peerConnection = null; }
     remoteVideo.srcObject = null;
     currentPeerId = null;
     isInitiator = false;
