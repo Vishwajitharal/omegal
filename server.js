@@ -17,14 +17,18 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
+const TURN_CREDENTIAL = process.env.TURN_CREDENTIAL || '';
+const TURN_USERNAME = process.env.TURN_USERNAME || '';
+const TURN_URL = process.env.TURN_URL || '';
+
+const TURN_SERVER = TURN_CREDENTIAL && TURN_USERNAME && TURN_URL
+  ? [{ urls: `turn:${TURN_URL}`, username: TURN_USERNAME, credential: TURN_CREDENTIAL }]
+  : [];
+
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
-    {
-      urls: `turn:${process.env.TURN_URL || 'relay.metered.ca:80'}`,
-      username: process.env.TURN_USERNAME || '',
-      credential: process.env.TURN_CREDENTIAL || '',
-    },
+    ...TURN_SERVER,
   ],
 };
 
