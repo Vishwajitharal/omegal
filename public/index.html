@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StrangerLink — Talk to Strangers</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>StrangerLink</h1>
+      <span class="tagline">Talk to strangers. Instantly.</span>
+    </header>
+
+    <div id="status-bar">
+      <span id="status-text">Ready</span>
+    </div>
+
+    <div id="home-screen" class="screen active">
+      <div class="video-container">
+        <video id="local-preview" autoplay muted playsinline></video>
+        <div class="video-label">You</div>
+      </div>
+      <button id="start-btn" class="btn btn-primary">Start</button>
+      <p class="hint">Click Start to be matched with a random stranger.</p>
+    </div>
+
+    <div id="call-screen" class="screen">
+      <div class="video-grid">
+        <div class="video-container remote-container">
+          <video id="remote-video" autoplay playsinline></video>
+          <div class="video-label">Stranger</div>
+          <div id="remote-fallback" class="fallback">Waiting for video...</div>
+        </div>
+        <div class="video-container local-container">
+          <video id="local-video" autoplay muted playsinline></video>
+          <div class="video-label">You</div>
+        </div>
+      </div>
+
+      <div class="chat-panel" id="chat-panel">
+        <div class="chat-header">
+          <span>Text Chat</span>
+          <button id="toggle-chat-btn" class="btn-icon" title="Toggle chat">&times;</button>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="Type a message..." disabled />
+          <button id="chat-send-btn" disabled>Send</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="mic-btn" class="btn btn-control" title="Toggle microphone">Mic</button>
+        <button id="cam-btn" class="btn btn-control" title="Toggle camera">Cam</button>
+        <button id="report-btn" class="btn btn-control btn-warning" title="Report user">Report</button>
+        <button id="next-btn" class="btn btn-primary">Next</button>
+        <button id="stop-btn" class="btn btn-danger">Stop</button>
+      </div>
+    </div>
+
+    <div id="report-modal" class="modal-overlay hidden">
+      <div class="modal">
+        <h3>Report User</h3>
+        <select id="report-reason">
+          <option value="">Select a reason...</option>
+          <option value="nudity">Nudity / sexual content</option>
+          <option value="harassment">Harassment / bullying</option>
+          <option value="spam">Spam / advertising</option>
+          <option value="underage">Looks underage</option>
+          <option value="other">Other</option>
+        </select>
+        <div class="modal-actions">
+          <button id="report-cancel" class="btn">Cancel</button>
+          <button id="report-submit" class="btn btn-warning">Submit Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
